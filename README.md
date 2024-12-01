@@ -35,6 +35,7 @@ pip install pfutil
 
 Install from source:
 ```
+pip install setuptools
 python setup.py install
 ```
 
