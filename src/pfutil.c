@@ -68,14 +68,21 @@ static PyObject* HyperLogLog_from_bytes(PyObject *cls, PyObject *args)
         return NULL;
     }
 
-    HyperLogLogObject *self = (HyperLogLogObject *)PyObject_New(HyperLogLogObject, (PyTypeObject *)cls);
-    if (!self) {
-        return NULL;
-    }
-
     Py_ssize_t num_bytes = PyBytes_Size(bytes_obj);
     char const *bytes = PyBytes_AsString(bytes_obj);
     if (!bytes) {
+        PyErr_SetString(PyExc_ValueError, "Failed to read from bytes");
+        return NULL;
+    }
+
+    if (num_bytes < 4 || bytes[0] != 'H' || bytes[1] != 'Y' || bytes[2] != 'L' || bytes[3] != 'L') {
+        PyErr_SetString(PyExc_ValueError, "Invalid signature");
+        return NULL;
+    }
+
+    HyperLogLogObject *self = (HyperLogLogObject *)PyObject_New(HyperLogLogObject, (PyTypeObject *)cls);
+    if (!self) {
+        PyErr_SetString(PyExc_ValueError, "Failed to create HyperLogLog object");
         return NULL;
     }
 
@@ -97,7 +104,7 @@ static PyObject* HyperLogLog_pfadd(HyperLogLogObject *self, PyObject *args)
         Py_ssize_t num_bytes;
         char const *bytes = PyUnicode_AsUTF8AndSize(item, &num_bytes);
         if (pfadd(&(self->sds), bytes, num_bytes) < 0) {
-            PyErr_SetString(PyExc_RuntimeError, "Error");
+            PyErr_SetString(PyExc_RuntimeError, "Failed to add elements");
             return NULL;
         }
     }
@@ -120,8 +127,11 @@ static PyObject* HyperLogLog_from_elements(PyObject *cls, PyObject *args)
         return NULL;
     }
 
-    HyperLogLog_pfadd(self, args);
-    Py_DECREF(self); // HyperLogLog_pfadd returns self
+    if (!HyperLogLog_pfadd(self, args)) {
+        return NULL;
+    }
+
+    Py_DECREF(self); // HyperLogLog_pfadd() returns self
     return (PyObject *)self;
 }
 
@@ -138,6 +148,7 @@ static PyObject* HyperLogLog_pfmerge(HyperLogLogObject *self, PyObject *args)
     int const ret = pfmerge(&(self->sds), other->sds);
     if (ret < 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to merge HyperLogLog objects");
+        return NULL;
     }
 
     Py_INCREF(self);

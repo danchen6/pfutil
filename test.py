@@ -53,6 +53,59 @@ class TestHyperLogLog(unittest.TestCase):
         self.assertLessEqual(rate, 0.015)
 
 
+class TestErrorHandling(unittest.TestCase):
+    def test_from_bytes_empty(self):
+        with self.assertRaises(ValueError) as e:
+            h = HyperLogLog.from_bytes(b'')
+            h.pfcount()
+        exception_msg = e.exception.args[0]
+        self.assertEqual(exception_msg, 'Invalid signature')
+
+    def test_from_bytes_invalid(self):
+        with self.assertRaises(ValueError) as e:
+            h = HyperLogLog.from_bytes(b'invalid')
+            h.pfcount()
+        exception_msg = e.exception.args[0]
+        self.assertEqual(exception_msg, 'Invalid signature')
+
+    def test_add_integer(self):
+        h = HyperLogLog()
+        with self.assertRaises(TypeError) as e:
+            h.pfadd(42)
+        exception_msg = e.exception.args[0]
+        self.assertEqual(exception_msg, 'All arguments must be strings')
+
+    def test_from_elements_integer(self):
+        with self.assertRaises(TypeError) as e:
+            h = HyperLogLog.from_elements(5566)
+            h.pfcount()
+        exception_msg = e.exception.args[0]
+        self.assertEqual(exception_msg, 'All arguments must be strings')
+
+    def test_merge_string(self):
+        h = HyperLogLog()
+        with self.assertRaises(TypeError) as e:
+            h.pfmerge('invalid')
+        exception_msg = e.exception.args[0]
+        self.assertTrue('must be pfutil.HyperLogLog' in exception_msg)
+
+    def test_pickle_serialization(self):
+        h = HyperLogLog.from_elements('widget')
+        with self.assertRaises(TypeError) as e:
+            import pickle
+            pickle.dumps(h)
+        exception_msg = e.exception.args[0]
+        self.assertTrue('cannot pickle' in exception_msg)
+
+    def test_json_serialization(self):
+        h = HyperLogLog.from_elements('widget')
+        with self.assertRaises(TypeError) as e:
+            import json
+            json.dumps(h)
+        exception_msg = e.exception.args[0]
+        self.assertTrue('is not JSON serializable' in exception_msg)
+
+
 @unittest.skip('Test with Redis is not enabled')
 class TestRedisCompatibility(unittest.TestCase):
     def setUp(self):

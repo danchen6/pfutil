@@ -40,6 +40,20 @@ python setup.py install
 ```
 
 
+Usage
+-----
+
+* `HyperLogLog()` creates an empty HyperLogLog object
+* `HyperLogLog.from_bytes(b'...')` creates a HyperLogLog object from Redis-compatible bytes representation
+* `HyperLogLog.from_elements('a', 'b')` create a HyperLogLog object from one or more strings
+* `h.pfadd('x')` adds one or more strings into this HyperLogLog object
+* `h.pfmerge(other)` merges another HyperLogLog object `other` into this `h`
+* `h.pfcount()` returns the cardinality of this HyperLogLog object
+* `h.to_bytes()` serializes the HyperLogLog object into Redis-compatible bytes representation
+
+Refer to `test.py` for some examples.
+
+
 License
 -------
 

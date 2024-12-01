@@ -9,7 +9,7 @@ module = Extension(
 
 setup(
     name='pfutil',
-    version='1.0.1',
+    version='1.0.2',
     description='Fast and Redis-compatible HyperLogLog extension for Python 3',
     author='Dan Chen',
     author_email='danchen666666@gmail.com',
