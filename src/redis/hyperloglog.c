@@ -1153,8 +1153,23 @@ void *createHLLObject(void) {
 /* -------------------------------------------------------------------------- */
 
 
-void* _pfcreate()
+void* createHLLObjectDense()
 {
+    sds s = sdsnewlen(NULL, HLL_DENSE_SIZE);
+    memset(s, 0, HLL_DENSE_SIZE);
+
+    struct hllhdr *hdr = (struct hllhdr*) s;
+    hdr->encoding = HLL_DENSE;
+    memcpy(hdr->magic, "HYLL", 4);
+    return s;
+}
+
+
+void* _pfcreate(int use_dense)
+{
+    if (use_dense == 1) {
+        return createHLLObjectDense();
+    }
     return createHLLObject();
 }
 

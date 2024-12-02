@@ -46,12 +46,18 @@ static void HyperLogLog_dealloc(HyperLogLogObject *self)
 
 static PyObject* HyperLogLog_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+    int use_dense = 0;
+    static char *kwlist[] = {"use_dense", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$p", kwlist, &use_dense)) {
+        return NULL;
+    }
+
     HyperLogLogObject *self = (HyperLogLogObject*) PyObject_New(HyperLogLogObject, type);
     if (!self) {
         return NULL;
     }
 
-    self->sds = _pfcreate();
+    self->sds = _pfcreate(use_dense);
     return (PyObject*) self;
 }
 
@@ -116,18 +122,16 @@ static PyObject* HyperLogLog_pfadd(HyperLogLogObject *self, PyObject *args)
 
 static PyObject* HyperLogLog_from_elements(PyObject *cls, PyObject *args)
 {
-    Py_ssize_t num_args = PyTuple_Size(args);
-    PyObject *elements_list = PyList_New(num_args);
-    if (!elements_list) {
-        return NULL;
-    }
-
-    HyperLogLogObject *self = (HyperLogLogObject*) HyperLogLog_new((PyTypeObject*) cls, NULL, NULL);
+    HyperLogLogObject *self = (HyperLogLogObject*) PyObject_New(HyperLogLogObject, (PyTypeObject*) cls);
     if (!self) {
         return NULL;
     }
 
+    int const use_dense = 0;
+    self->sds = _pfcreate(use_dense);
+
     if (!HyperLogLog_pfadd(self, args)) {
+        Py_DECREF(self);
         return NULL;
     }
 

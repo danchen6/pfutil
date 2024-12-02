@@ -31,7 +31,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void* _pfcreate();
+void* _pfcreate(int use_dense);
 void* _pfload(char const *bytes, size_t const num_bytes);
 void _pffree(void *sds);
 size_t _pfbytesize(void *sds);

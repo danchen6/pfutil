@@ -16,6 +16,12 @@ class TestHyperLogLog(unittest.TestCase):
         self.assertEqual(h.pfcount(), 0)
         self.assertEqual(h.to_bytes(), REDIS_HYPERLOGLOG_EMPTY)
 
+    def test_init_with_use_dense(self):
+        sparse = HyperLogLog(use_dense=False)
+        dense = HyperLogLog(use_dense=True)
+        self.assertLess(len(sparse.to_bytes()), 64)
+        self.assertGreater(len(dense.to_bytes()), 8192)
+
     def test_init_from_bytes(self):
         h = HyperLogLog.from_bytes(REDIS_HYPERLOGLOG_ABC)
         self.assertEqual(h.pfcount(), 3)
