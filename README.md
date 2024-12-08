@@ -3,6 +3,8 @@ pfutil
 
 Fast [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) extension for Python 3.  The underlying binary representation is compatible with [Redis](https://redis.io).
 
+This package supports both Python 2.7 and Python 3.3+ (tested with Python 3.13).
+
 ```python
 #!python3
 import redis

@@ -1,4 +1,6 @@
 #!python3
+#encoding: utf-8
+import sys
 import unittest
 import uuid
 
@@ -37,6 +39,12 @@ class TestHyperLogLog(unittest.TestCase):
             h.pfadd(str(uuid.uuid4()))
         self.assertEqual(h.pfcount(), 13)
 
+    @unittest.skipIf(sys.version_info.major > 2, 'Python 2.7 only')
+    def test_pfadd_py2_unicode(self):
+        h = HyperLogLog()
+        h.pfadd(u'你好世界'.encode('utf-8'))
+        self.assertEqual(h.pfcount(), 1)
+
     def test_pfmerge(self):
         a = HyperLogLog.from_elements('a', 'b', 'c')
         b = HyperLogLog.from_elements('x', 'y', 'z')
@@ -74,10 +82,18 @@ class TestErrorHandling(unittest.TestCase):
         exception_msg = e.exception.args[0]
         self.assertEqual(exception_msg, 'Invalid signature')
 
-    def test_add_integer(self):
+    def test_pfadd_integer(self):
         h = HyperLogLog()
         with self.assertRaises(TypeError) as e:
             h.pfadd(42)
+        exception_msg = e.exception.args[0]
+        self.assertEqual(exception_msg, 'All arguments must be strings')
+
+    @unittest.skipIf(sys.version_info.major > 2, 'Python 2.7 only')
+    def test_pfadd_py2_unicode(self):
+        h = HyperLogLog()
+        with self.assertRaises(TypeError) as e:
+            h.pfadd(u'你好世界')
         exception_msg = e.exception.args[0]
         self.assertEqual(exception_msg, 'All arguments must be strings')
 
@@ -88,7 +104,7 @@ class TestErrorHandling(unittest.TestCase):
         exception_msg = e.exception.args[0]
         self.assertEqual(exception_msg, 'All arguments must be strings')
 
-    def test_merge_string(self):
+    def test_pfmerge_string(self):
         h = HyperLogLog()
         with self.assertRaises(TypeError) as e:
             h.pfmerge('invalid')
@@ -101,7 +117,7 @@ class TestErrorHandling(unittest.TestCase):
             import pickle
             pickle.dumps(h)
         exception_msg = e.exception.args[0]
-        self.assertTrue('cannot pickle' in exception_msg)
+        self.assertTrue('cannot pickle' in exception_msg, exception_msg)
 
     def test_json_serialization(self):
         h = HyperLogLog.from_elements('widget')

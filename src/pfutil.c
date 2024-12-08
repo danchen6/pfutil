@@ -9,9 +9,9 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
- *     to endorse or promote products derived from this software without
- *     specific prior written permission.
+ *   * Neither the name of the copyright holder nor the names of its contributors
+ *     may be used to endorse or promote products derived from this software
+ *     without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -48,9 +48,16 @@ static PyObject* HyperLogLog_new(PyTypeObject *type, PyObject *args, PyObject *k
 {
     int use_dense = 0;
     static char *kwlist[] = {"use_dense", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$p", kwlist, &use_dense)) {
-        return NULL;
-    }
+
+    #if PY_MAJOR_VERSION >= 3
+        if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$p", kwlist, &use_dense)) {
+            return NULL;
+        }
+    #else  // Python 2.7
+        if (!PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, &use_dense)) {
+            return NULL;
+        }
+    #endif
 
     HyperLogLogObject *self = (HyperLogLogObject*) PyObject_New(HyperLogLogObject, type);
     if (!self) {
@@ -102,13 +109,26 @@ static PyObject* HyperLogLog_pfadd(HyperLogLogObject *self, PyObject *args)
     Py_ssize_t num_args = PyTuple_Size(args);
     for (Py_ssize_t i = 0; i < num_args; i++) {
         PyObject *item = PyTuple_GetItem(args, i);
-        if (!PyUnicode_Check(item)) {
-            PyErr_SetString(PyExc_TypeError, "All arguments must be strings");
-            return NULL;
-        }
+        #if PY_MAJOR_VERSION >= 3
+            if (!PyUnicode_Check(item)) {
+                PyErr_SetString(PyExc_TypeError, "All arguments must be strings");
+                return NULL;
+            }
 
-        Py_ssize_t num_bytes;
-        char const *bytes = PyUnicode_AsUTF8AndSize(item, &num_bytes);
+            Py_ssize_t num_bytes;
+            char const *bytes = PyUnicode_AsUTF8AndSize(item, &num_bytes);
+        #else  // Python 2.7
+            if (!PyString_Check(item)) {
+                PyErr_SetString(PyExc_TypeError, "All arguments must be strings");
+                return NULL;
+            }
+
+            char const *bytes = NULL;
+            Py_ssize_t num_bytes;
+            if (PyString_AsStringAndSize(item, &bytes, &num_bytes) < 0) {
+                return NULL;
+            }
+        #endif
         if (pfadd(&(self->sds), bytes, num_bytes) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to add elements");
             return NULL;
@@ -175,6 +195,15 @@ static PyObject* HyperLogLog_to_bytes(HyperLogLogObject *self, PyObject *Py_UNUS
 }
 
 
+static PyObject* HyperLogLog___reduce__(HyperLogLogObject *self, PyObject *args)
+{
+    // Python 3.2 and their friends need this method to disable pickle,
+    // while later Pythons don't.
+    PyErr_SetString(PyExc_TypeError, "cannot pickle HyperLogLog object");
+    return NULL;
+}
+
+
 static PyMethodDef HyperLogLog_methods[] = {
     {
         "pfadd", (PyCFunction)HyperLogLog_pfadd, METH_VARARGS,
@@ -201,6 +230,10 @@ static PyMethodDef HyperLogLog_methods[] = {
         "Create a HyperLogLog from elements"
     },
     {
+        "__reduce__", (PyCFunction)HyperLogLog___reduce__, METH_NOARGS,
+        "Disable pickle"
+    },
+    {
         NULL
     },
 };
@@ -219,32 +252,57 @@ static PyTypeObject HyperLogLogType = {
 };
 
 
-static PyModuleDef pfutilmodule = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "pfutil",
-    .m_doc = "Fast and Redis-compatible HyperLogLog extension for Python 3",
-    .m_size = -1,
-};
+#if PY_MAJOR_VERSION >= 3
 
+    static PyModuleDef pfutilmodule = {
+        PyModuleDef_HEAD_INIT,
+        .m_name = "pfutil",
+        .m_doc = "Fast and Redis-compatible HyperLogLog extension for Python 3",
+        .m_size = -1,
+    };
 
-PyMODINIT_FUNC
-PyInit_pfutil(void)
-{
-    PyObject *m;
-    if (PyType_Ready(&HyperLogLogType) < 0) {
-        return NULL;
+    PyMODINIT_FUNC
+    PyInit_pfutil()
+    {
+        PyObject *m;
+        if (PyType_Ready(&HyperLogLogType) < 0) {
+            return NULL;
+        }
+
+        m = PyModule_Create(&pfutilmodule);
+        if (!m) {
+            return NULL;
+        }
+
+        Py_INCREF(&HyperLogLogType);
+        if (PyModule_AddObject(m, "HyperLogLog", (PyObject*) &HyperLogLogType) < 0) {
+            Py_DECREF(&HyperLogLogType);
+            Py_DECREF(m);
+            return NULL;
+        }
+        return m;
     }
 
-    m = PyModule_Create(&pfutilmodule);
-    if (!m) {
-        return NULL;
+#else  // Python 2.7
+
+    PyMODINIT_FUNC
+    initpfutil()
+    {
+        if (PyType_Ready(&HyperLogLogType) < 0) {
+            return ;
+        }
+
+        PyObject *m = Py_InitModule3(
+            "pfutil",
+            NULL,
+            "Fast and Redis-compatible HyperLogLog extension for Python 3"
+        );
+        if (!m) {
+            return;
+        }
+
+        Py_INCREF(&HyperLogLogType);
+        PyModule_AddObject(m, "HyperLogLog", (PyObject*) &HyperLogLogType);
     }
 
-    Py_INCREF(&HyperLogLogType);
-    if (PyModule_AddObject(m, "HyperLogLog", (PyObject *)&HyperLogLogType) < 0) {
-        Py_DECREF(&HyperLogLogType);
-        Py_DECREF(m);
-        return NULL;
-    }
-    return m;
-}
+#endif
